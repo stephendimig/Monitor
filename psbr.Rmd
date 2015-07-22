@@ -1,0 +1,484 @@
+---
+title: "PSBR Performance Analysis"
+author: "Stephen Dimig"
+date: "Tuesday, June 23, 2015"
+output: word_document
+---
+
+```{r, echo=FALSE, warning=FALSE}
+library(ggplot2)
+
+df <- read.table("psbr_data.txt", sep=";", header=TRUE, stringsAsFactors=FALSE)
+
+df$Date <- as.POSIXlt(df$Date, format="%Y-%m-%d %H:%M:%S")
+
+df$NumPsbrBindingRecs <- as.numeric(df$NumPsbrBindingRecs)
+df$NumPsbrSessionRecs  <- as.numeric(df$NumPsbrSessionRecs)
+df$AllocInMemorySize <- as.numeric(df$AllocInMemorySize)
+df$UsedInMemorySize <- as.numeric(df$UsedInMemorySize)
+df$BINDINGTASKQ0 <- as.numeric(df$BINDINGTASKQ0)
+df$BINDINGTASKQ1 <- as.numeric(df$BINDINGTASKQ1)
+df$BINDINGTASKQ2 <- as.numeric(df$BINDINGTASKQ2)
+df$BINDINGTASKQ3 <- as.numeric(df$BINDINGTASKQ3)
+df$SESSIONTASKQ0 <- as.numeric(df$SESSIONTASKQ0)
+df$SESSIONTASKQ0 <- as.numeric(df$SESSIONTASKQ1)
+df$SESSIONTASKQ0 <- as.numeric(df$SESSIONTASKQ2)
+df$SESSIONTASKQ0 <- as.numeric(df$SESSIONTASKQ3)
+df$ImsiAnchorKeyRecs <- as.numeric(df$ImsiAnchorKeyRecs)
+df$ImsiApnAnchorKeyRecs <- as.numeric(df$ImsiApnAnchorKeyRecs)
+df$MsisdnAlternateKeyRecs <- as.numeric(df$ImsiApnAnchorKeyRecs)
+df$MsisdnApnAlternateKeyRecs <- as.numeric(df$MsisdnApnAlternateKeyRecs)
+df$Ipv4AlternateKeyRecs <- as.numeric(df$Ipv4AlternateKeyRecs)
+df$Ipv4AlternateKeyV2Recs <- as.numeric(df$Ipv4AlternateKeyV2Recs)
+df$Ipv6AlternateKeyRecs <- as.numeric(df$Ipv6AlternateKeyRecs)
+df$Ipv6AlternateKeyV2Recs <- as.numeric(df$Ipv6AlternateKeyV2Recs)
+df$SessionRecs <- as.numeric(df$SessionRecs)
+df$OcSessionRecs <- as.numeric(df$OcSessionRecs)
+df$OcClientHostRecs <- as.numeric(df$OcClientHostRecs)
+df$IngressStackEventRate <- as.numeric(df$IngressStackEventRate)
+df$EgressStackEventRate <- as.numeric(df$EgressStackEventRate)
+df$BindingTaskCpu0 <- as.numeric(df$BindingTaskCpu0)
+df$BindingTaskCpu1 <- as.numeric(df$BindingTaskCpu1)
+df$BindingTaskCpu2 <- as.numeric(df$BindingTaskCpu2)
+df$BindingTaskCpu3 <- as.numeric(df$BindingTaskCpu3)
+df$RecordAuditTaskCpu <- as.numeric(df$RecordAuditTaskCpu)
+df$AuditStackEventTaskCpu <- as.numeric(df$AuditStackEventTaskCpu)
+df$CATxUserBundlingRatio <- as.numeric(df$CATxUserBundlingRatio)
+df$CATxProvBundlingRatio <- as.numeric(df$CATxProvBundlingRatio)
+df$CARxBundlingRatio <- as.numeric(df$CARxBundlingRatio)
+df$SessionTaskCpu0 <- as.numeric(df$SessionTaskCpu0)
+df$SessionTaskCpu1 <- as.numeric(df$SessionTaskCpu1)
+df$SessionTaskCpu2 <- as.numeric(df$SessionTaskCpu2)
+df$SessionTaskCpu3 <- as.numeric(df$SessionTaskCpu3)
+df$CATcpThread <- as.numeric(df$CATcpThread)
+df$CARIngressTask <- as.numeric(df$CARIngressTask)
+df$CADirectXferThr <- as.numeric(df$CADirectXferThr)
+df$CAREgressTask <- as.numeric(df$CAREgressTask)
+df$ComAgentTimer <- as.numeric(df$ComAgentTimer)
+df$ComAgtReTx <- as.numeric(df$ComAgtReTx)
+df$AlarmMajor <- as.numeric(df$AlarmMajor)
+df$AlarmMinor <- as.numeric(df$AlarmMinor)
+df$AlarmCrit <- as.numeric(df$AlarmCrit)
+df$SbrSisTaskCpu0 <- as.numeric(df$SbrSisTaskCpu0)
+df$SbrSisTaskCpu1 <- as.numeric(df$SbrSisTaskCpu1)
+df$SbrSisSendRarTaskCpu <- as.numeric(df$SbrSisSendRarTaskCpu)
+df$SbrSisRspHandleTaskCpu <- as.numeric(df$SbrSisRspHandleTaskCpu)
+df$SbrInvokeSisSenTaskCpu <- as.numeric(df$SbrInvokeSisSenTaskCpu)
+df$SbrInvokeSisRspTaskCpu <- as.numeric(df$SbrInvokeSisRspTaskCpu)
+
+
+options(scipen=999)
+options(digits=2)
+```
+
+### Quick Summary
+The following is a quick summary of test results.
+
+| __Resource__  | __Value__  |
+| ------------------------- | -------- |
+| Start                    :| `r format(df$Date[1], "%m/%d/%Y %H:%M:%S")` |
+| End                      :| `r format(df$Date[dim(df)[[1]]], "%m/%d/%Y %H:%M:%S")` |
+| Duration                 :| `r difftime(df$Date[dim(df)[[1]]], df$Date[1], units="hours")` Hours |
+| RAM Start                :| `r df$Ram[1]` % |
+| RAM End                  :| `r df$Ram[dim(df)[[1]]]` % |
+| RAM Minimum              :| `r min(df$Ram, na.rm=TRUE)` % |
+| RAM Maximum              :| `r max(df$Ram, na.rm=TRUE)` % |
+| RAM Average              :| `r mean(df$Ram, na.rm=TRUE)` % |
+| CPU Usage                :| `r mean(df$Cpu, na.rm=TRUE)` % |
+| Number Bindings - Start  :| `r df$NumPsbrBindingRecs[1]`|
+| Number Bindings - End    :| `r df$NumPsbrBindingRecs[dim(df)[[1]]]`|
+| Number Bindings - Mean   :| `r mean(df$NumPsbrBindingRecs, na.rm=TRUE)`|
+| Number Sessions - Start  :| `r df$NumPsbrSessionRecs[1]`|
+| Number Sessions - End    :| `r df$NumPsbrSessionRecs[dim(df)[[1]]]`|
+| Number Sessions - Mean   :| `r mean(df$NumPsbrSessionRecs, na.rm=TRUE)`|
+| Ingress Stack Event Rate :| `r mean(df$IngressStackEventRate, na.rm=TRUE)` |
+| Egress Stack Event Rate  :| `r mean(df$EgressStackEventRate, na.rm=TRUE)` |
+| CA TX User Bundling Ratio:| `r mean(df$CATxUserBundlingRatio, na.rm=TRUE)` |
+| CA TX Prov Bundling Ratio:| `r mean(df$CATxProvBundlingRatio, na.rm=TRUE)` |
+| CA Rx Bundling Ratio     :| `r 1 / mean(df$CARxBundlingRatio, na.rm=TRUE)` |
+| Minor Alarms             :| `r round(sum(df$AlarmMinor, na.rm=TRUE), 0)` |
+| Major Alarms             :| `r round(sum(df$AlarmMajor, na.rm=TRUE), 0)` |
+| Critical Alarms          :| `r round(sum(df$AlarmCrit, na.rm=TRUE), 0)` |
+
+### Memory Usage
+A brief summary of system memory usage for PSBR. This diagram shows the measured RAM usage as given by the psbr.MemPerTotal sysmetric. It also shows the minor, major, and critical threshold levels for reference. A trend line is also included which is a best fit line showing any trend in RAM usage over time. The slope of the trend line should be at, or very close to, 0 for a duration run at a constant traffic rate.
+
+Mean RAM Usage is: `r mean(df$Ram, na.rm=TRUE)`%
+
+Minimum RAM Usage is: `r min(df$Ram, na.rm=TRUE)`%
+
+Maximum RAM Usage is: `r max(df$Ram, na.rm=TRUE)`%
+
+Starting RAM Usage is: `r df$Ram[1]`%
+
+Ending RAM Usage is: `r df$Ram[dim(df)[[1]]]`%
+
+```{r, echo=FALSE, fig.height=6, fig.width=6}
+options(scipen=0)
+slopeRam <- coef(lm(Ram ~ as.numeric(Date), df))[2];
+```
+
+Trend Line Slope for RAM Usage is: `r slopeRam` 
+
+Correlation between RAM and Time: `r cor(df$Ram, as.numeric(df$Date))` 
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date, x=Date, y=Ram)) + 
+    scale_colour_manual("Memory", breaks=c("Ram", "Minor", "Major", "Critical", "Trend"), values=c('blue', 'orange', 'green', 'red', 'brown')) +
+    geom_line(aes(y = Ram, colour="Ram")) + 
+    geom_hline(aes(yintercept=70, colour="Minor")) +
+    geom_hline(aes(yintercept=80, colour="Major")) +
+    geom_hline(aes(yintercept=90, colour="Critical")) +
+    geom_smooth(aes(colour="Trend"), method="lm", formula=y~x, se=FALSE) +
+    ylab("Memory Usage") +
+    xlab("Date/Time") +
+    ggtitle("PSBR Memory Usage")
+    
+```
+
+```{r, echo=FALSE, fig.height=6, fig.width=6}
+options(scipen=999)
+```
+
+
+### CPU Usage
+A brief summary of CPU resource usage for PSBR. This diagram shows the measured CPU usage as given by the psbr.Cpu sysmetric. It also shows the minor, major, and critical threshold levels for reference. A trend line is also included which is a best fit line showing any trend in CPU usage over time. The slope of the trend line should be at, or very close to, 0 for a duration run at a constant traffic rate.
+
+Mean CPU Usage is: `r mean(df$Cpu, na.rm=TRUE)`
+
+Minimum CPU Usage is: `r min(df$Cpu, na.rm=TRUE)`%
+
+Maximum CPU Usage is: `r max(df$Cpu, na.rm=TRUE)`%
+
+Starting CPU Usage is: `r df$Cpu[1]`%
+
+Ending CPU Usage is: `r df$Cpu[dim(df)[[1]]]`%
+
+```{r, echo=FALSE, fig.height=6, fig.width=6}
+
+options(scipen=0)
+
+fitCpu <- lm(Cpu ~ as.numeric(Date), df)
+
+```
+
+Trend Line Slope for CPU Usage is: `r coef(fitCpu)[2]`
+
+Correlation between CPU and Time: `r cor(df$Cpu, as.numeric(df$Date))` 
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date, x=Date, y=Cpu)) + 
+    scale_colour_manual("CPU", breaks=c("Cpu", "Minor", "Major", "Critical", "Trend"), values=c('blue', 'orange', 'green', 'red', 'brown')) +
+    geom_line(aes(y = Cpu, colour="Cpu")) +
+    geom_hline(aes(yintercept=60, colour="Minor")) +
+    geom_hline(aes(yintercept=66, colour="Major")) +
+    geom_hline(aes(yintercept=72, colour="Critical")) +
+    geom_smooth(aes(colour="Trend"), method="lm", formula=y~x, se=FALSE) +
+    ylab("CPU Usage") +
+    xlab("Date/Time") +
+    ggtitle("PSBR CPU Usage")
+    
+```
+
+```{r, echo=FALSE, fig.height=6, fig.width=6}
+options(scipen=999)
+```
+
+
+### Binding Queue Depths
+A summary of Binding Queue depths for the PSBR Binding Tasks. This diagram shows the queue utilization for each of the Binding tasks on a PSBR system.
+
+Mean BINDINGTASKQ0 Utilization is: `r mean(df$BINDINGTASKQ0, na.rm=TRUE)`%
+
+Mean BINDINGTASKQ1 Utilization is: `r mean(df$BINDINGTASKQ1, na.rm=TRUE)`%
+
+Mean BINDINGTASKQ2 Utilization is: `r mean(df$BINDINGTASKQ2, na.rm=TRUE)`%
+
+Mean BINDINGTASKQ3 Utilization is: `r mean(df$BINDINGTASKQ3, na.rm=TRUE)`%
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Resource", breaks=c("BINDINGTASKQ0", "BINDINGTASKQ1", "BINDINGTASKQ2", "BINDINGTASKQ3"), values=c('red', 'orange', 'yellow', 'blue')) +
+    geom_line(aes(y = BINDINGTASKQ0, colour="BINDINGTASKQ0")) + 
+    geom_line(aes(y = BINDINGTASKQ1, colour="BINDINGTASKQ1")) +
+    geom_line(aes(y = BINDINGTASKQ2, colour="BINDINGTASKQ2")) +
+    geom_line(aes(y = BINDINGTASKQ3, colour="BINDINGTASKQ3")) +
+    ylab("Utilization") +
+    xlab("Date/Time") +
+    ggtitle("PSBR Binding Queue Depths")
+```
+
+### Session Queue Depths
+A summary of Session Queue depths for the PSBR Session Tasks. This diagram shows the queue utilization for each of the Session tasks on a PSBR system.
+
+Mean SESSIONTASKQ0 Utilization is: `r mean(df$SESSIONTASKQ0, na.rm=TRUE)`%
+
+Mean SESSIONTASKQ1 Utilization is: `r mean(df$SESSIONTASKQ1, na.rm=TRUE)`%
+
+Mean SESSIONTASKQ2 Utilization is: `r mean(df$SESSIONTASKQ2, na.rm=TRUE)`%
+
+Mean SESSIONTASKQ3 Utilization is: `r mean(df$SESSIONTASKQ3, na.rm=TRUE)`%
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Resource", breaks=c("SESSIONTASKQ0", "SESSIONTASKQ1", "SESSIONTASKQ2", "SESSIONTASKQ3"), values=c('red', 'orange', 'yellow', 'blue')) +
+    geom_line(aes(y = SESSIONTASKQ0, colour="SESSIONTASKQ0")) + 
+    geom_line(aes(y = SESSIONTASKQ1, colour="SESSIONTASKQ1")) +
+    geom_line(aes(y = SESSIONTASKQ2, colour="SESSIONTASKQ2")) +
+    geom_line(aes(y = SESSIONTASKQ3, colour="SESSIONTASKQ3")) +
+    ylab("Utilization") +
+    xlab("Date/Time") +
+    ggtitle("PSBR Session Queue Depths")
+```
+
+
+### IDB Memory Usage
+A summary of IDB Memory usage. This diagram shows the amount of memory allocated by IDB versus the amount of memory actually used.
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+types <- c("Allocated", "Used")
+values <- c(mean(df$AllocInMemorySize), mean(df$UsedInMemorySize))
+mydf <- data.frame(types, values)
+names(mydf) <- c("Type", "Value")
+
+mydf <- mydf[mydf$Value !=0, ]
+
+ggplot(mydf, aes(x=factor(Type), y=Value, fill=Type)) + geom_bar(stat = "identity") +
+    ylab("Memory Usage") +
+    xlab("Date/Time") +
+    ggtitle("PSBR IDB Memory Usage")
+```
+
+
+
+### Session/Binding records
+A summary of the number of Session/Binding records in the PSBR database. This diagram shows the number of binding or session records in the PSBR database.
+
+Mean number of PSBR Sessions is: `r mean(df$NumPsbrSessionRecs, na.rm=TRUE)`
+
+Minimum number of PSBR Sessions is: `r min(df$NumPsbrSessionRecs, na.rm=TRUE)`
+
+Maximum number of PSBR Sessions is: `r max(df$NumPsbrSessionRecs, na.rm=TRUE)`
+
+Mean number of PSBR Bindings is: `r mean(df$NumPsbrBindingRecs, na.rm=TRUE)`
+
+Minimum number of PSBR Bindings is: `r min(df$NumPsbrBindingRecs, na.rm=TRUE)`
+
+Maximum number of PSBR Bindings is: `r max(df$NumPsbrBindingRecs, na.rm=TRUE)`
+
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+types <- c("Session", "Binding")
+values <- c(mean(df$NumPsbrSessionRecs), mean(df$NumPsbrBindingRecs))
+mydf <- data.frame(types, values)
+names(mydf) <- c("Type", "Value")
+
+mydf <- mydf[mydf$Value !=0, ]
+
+ggplot(mydf, aes(x=factor(Type), y=Value, fill=Type)) + geom_bar(stat = "identity") +
+    ylab("Number Records") +
+    xlab("Date/Time") +
+    ggtitle("PSBR Session/Binding record size")
+```
+
+
+
+
+### Database Composition (Bar Plot)
+A summary of the types of records in the PSBR database by table. This diagram shows the composition of the PSBR database by the number of records in each table.
+
+
+| __Table__  | __Records__  |
+| ---------------------- | -------- |
+| ImsiAnchorKey          | `r round(mean(df$ImsiAnchorKeyRecs), 0)` |
+| ImsiApnAnchorKey       | `r round(mean(df$ImsiApnAnchorKeyRecs), 0)` |
+| MsisdnAlternateKey     | `r round(mean(df$MsisdnAlternateKeyRecs), 0)` |
+| MsisdnApnAlternateKey  | `r round(mean(df$MsisdnApnAlternateKeyRecs), 0)` |
+| Ipv4AlternateKey       | `r round(mean(df$Ipv4AlternateKeyRecs), 0)` |
+| Ipv4AlternateKeyV2     | `r round(mean(df$Ipv4AlternateKeyV2Recs), 0)` |
+| Ipv6AlternateKey       | `r round(mean(df$Ipv6AlternateKeyRecs), 0)` |
+| Ipv6AlternateKeyV2     | `r round(mean(df$Ipv6AlternateKeyV2Recs), 0)` |
+| Session                | `r round(mean(df$SessionRecs), 0)` |
+| OcSession              | `r round(mean(df$OcSessionRecs), 0)` |
+| OcClientHost           | `r round(mean(df$OcClientHostRecs), 0)` |
+
+
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+types <- c("ImsiAnchor", "ImsiApnAnchor", "MsisdnAlt", "MsisdnApnAlt", "Ipv4Alt", "Ipv4AltV2", "Ipv6Alt", "Ipv6AltV2", "Session", "OcSession", "OcClientHost")
+values <- c(mean(df$ImsiAnchorKeyRecs), mean(df$ImsiApnAnchorKeyRecs), mean(df$MsisdnAlternateKeyRecs), mean(df$MsisdnApnAlternateKeyRecs), mean(df$Ipv4AlternateKeyRecs), mean(df$Ipv4AlternateKeyV2Recs), mean(df$Ipv6AlternateKeyRecs), mean(df$Ipv6AlternateKeyV2Recs), mean(df$SessionRecs), mean(df$OcSessionRecs), mean(df$OcClientHostRecs))
+mydf <- data.frame(types, values)
+names(mydf) <- c("Type", "Value")
+
+mydf <- mydf[mydf$Value !=0, ]
+
+ggplot(mydf, aes(x=factor(Type), y=Value, fill=Type)) + geom_bar(stat = "identity") +
+    ylab("Number of Records") +
+    xlab("Table") +
+    ggtitle("PSBR Database Composition")
+```
+
+### ComAgent Stack Event Rates
+A summary of ComAgent stack event rates over time. This diagram shows the ingress and egress rate of ComAgent Stack Events. It also shows a line that represents the mean of the ingress rate and a line that represents the mean of the egress rate.
+
+Mean Ingress Stack Event Rate is: `r mean(df$IngressStackEventRate, na.rm=TRUE)`
+
+Mean Egress Stack Event Rate is: `r mean(df$EgressStackEventRate, na.rm=TRUE)`
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Rate", breaks=c("Ingress", "Egress",  "IngressMean", "EgressMean"), values=c("red", "blue", "orange", "purple")) +
+    geom_line(aes(y = IngressStackEventRate, colour="Ingress")) + 
+    geom_line(aes(y = EgressStackEventRate, colour="Egress")) +
+    #geom_hline(aes(yintercept=mean(df$IngressStackEventRate, na.rm=TRUE), colour="IngressMean")) +
+    #geom_hline(aes(yintercept=mean(df$EgressStackEventRate, na.rm=TRUE), colour="EgressMean")) +
+    ylab("Rate") +
+    xlab("Date/Time") +
+    ggtitle("PSBR ComAgent Stack Event Rates")
+    
+```
+
+### Audit Stack Event Rate
+A summary of Audit stack event rate over time.
+
+Mean Audit Stack Event Rate is: `r mean(df$TxSbrAuditSEReqSent, na.rm=TRUE)`
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Rate", breaks=c("Audit", "Mean"), values=c("red", "blue")) +
+    geom_line(aes(y = TxSbrAuditSEReqSent, colour="Audit")) +
+    #geom_hline(aes(yintercept=mean(df$TxSbrAuditSEReqSent, na.rm=TRUE), colour="Mean")) +
+    ylab("Rate") +
+    xlab("Date/Time") +
+    ggtitle("PSBR Audit Stack Event Rate")
+    
+```
+
+
+
+### Binding SBR Per Task CPU Usage
+A summary of Binding SBR Per Task CPU Usage. This diagram shows the CPU usage of some important tasks for a Binding SBR.
+
+Mean CPU usage of BindingTask 0: `r mean(df$BindingTaskCpu0, na.rm=TRUE)`%
+
+Mean CPU usage of BindingTask 1: `r mean(df$BindingTaskCpu1, na.rm=TRUE)`%
+
+Mean CPU usage of BindingTask 2: `r mean(df$BindingTaskCpu2, na.rm=TRUE)`%
+
+Mean CPU usage of BindingTask 3: `r mean(df$BindingTaskCpu3, na.rm=TRUE)`%
+
+Mean CPU usage of RecordAuditTask: `r mean(df$RecordAuditTask, na.rm=TRUE)`%
+
+Mean CPU usage of AuditStackEventTask: `r mean(df$AuditStackEventTask, na.rm=TRUE)`%
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Utilization", breaks=c("BindingTask0", "BindingTask1", "BindingTask2", "BindingTask3", "RecordAuditTask", "AuditStackEventTask") , values=c("red", "blue", "green", "orange", "purple", "black")) +
+    geom_line(aes(y = BindingTaskCpu0, colour="BindingTask0")) + 
+    geom_line(aes(y = BindingTaskCpu1, colour="BindingTask1")) + 
+    geom_line(aes(y = BindingTaskCpu2, colour="BindingTask2")) + 
+    geom_line(aes(y = BindingTaskCpu3, colour="BindingTask3")) + 
+    geom_line(aes(y = RecordAuditTaskCpu, colour="RecordAuditTask")) +
+    geom_line(aes(y = AuditStackEventTaskCpu, colour="AuditStackEventTask")) +
+    ylab("Utilization") +
+    xlab("Date/Time") +
+    ggtitle("PSBR Binding SBR CPU Usage")
+```
+
+### Session SBR Per Task CPU Usage
+A summary of Session SBR Per Task CPU Usage. This diagram shows the CPU usage of some important tasks for a Session SBR.
+
+Mean CPU usage of SessionTask 0: `r mean(df$SessionTaskCpu0, na.rm=TRUE)`%
+
+Mean CPU usage of SessionTask 1: `r mean(df$SessionTaskCpu1, na.rm=TRUE)`%
+
+Mean CPU usage of SessionTask 2: `r mean(df$SessionTaskCpu2, na.rm=TRUE)`%
+
+Mean CPU usage of SessionTask 3: `r mean(df$SessionTaskCpu3, na.rm=TRUE)`%
+
+Mean CPU usage of RecordAuditTask: `r mean(df$RecordAuditTask, na.rm=TRUE)`%
+
+Mean CPU usage of AuditStackEventTask: `r mean(df$AuditStackEventTask, na.rm=TRUE)`%
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Utilization", breaks=c("SessionTask0", "SessionTask1", "SessionTask2", "SessionTask3", "RecordAuditTask", "AuditStackEventTask") , values=c("red", "blue", "green", "orange", "purple", "black")) +
+    geom_line(aes(y = SessionTaskCpu0, colour="SessionTask0")) + 
+    geom_line(aes(y = SessionTaskCpu1, colour="SessionTask1")) + 
+    geom_line(aes(y = SessionTaskCpu2, colour="SessionTask2")) + 
+    geom_line(aes(y = SessionTaskCpu3, colour="SessionTask3")) + 
+    geom_line(aes(y = RecordAuditTaskCpu, colour="RecordAuditTask")) +
+    geom_line(aes(y = AuditStackEventTaskCpu, colour="AuditStackEventTask")) +
+    ylab("Utilization") +
+    xlab("Date/Time") +
+    ggtitle("PSBR Session SBR CPU Usage")
+```
+
+
+### PSBR ComAgent Task CPU Usage
+A summary of PSBR ComAgent Per Task CPU Usage. This diagram shows the CPU usage of some important ComAgent tasks on a PSBR system.
+
+Mean CPU usage of CATcpThread: `r mean(df$CATcpThread, na.rm=TRUE)`%
+
+Mean CPU usage of CARIngressTask: `r mean(df$CARIngressTask, na.rm=TRUE)`%
+
+Mean CPU usage of CADirectXferThr: `r mean(df$CADirectXferThr, na.rm=TRUE)`%
+
+Mean CPU usage of CAREgressTask: `r mean(df$CAREgressTask, na.rm=TRUE)`%
+
+Mean CPU usage of ComAgentTimer: `r mean(df$ComAgentTimer, na.rm=TRUE)`%
+
+Mean CPU usage of ComAgtReTx: `r mean(df$ComAgtReTx, na.rm=TRUE)`%
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Utilization", breaks=c("CATcpThread", "CARIngressTask", "CADirectXferThr", "CAREgressTask", "ComAgentTimer", "ComAgtReTx") , values=c("red", "blue", "green", "orange", "purple", "black")) +
+    geom_line(aes(y = CATcpThread, colour="CATcpThread")) + 
+    geom_line(aes(y = CARIngressTask, colour="CARIngressTask")) + 
+    geom_line(aes(y = CADirectXferThr, colour="CADirectXferThr")) + 
+    geom_line(aes(y = CAREgressTask, colour="CAREgressTask")) + 
+    geom_line(aes(y = ComAgentTimer, colour="ComAgentTimer")) +
+    geom_line(aes(y = ComAgtReTx, colour="ComAgtReTx")) +
+    ylab("Utilization") +
+    xlab("Date/Time") +
+    ggtitle("PSBR ComAgent Task CPU Usage")
+```
+
+
+### PSBR SIS Task CPU Usage
+A summary of PSBR SIS Task CPU Usage. This diagram shows the CPU usage of some important SIS tasks on a PSBR system.
+
+Mean CPU usage of SbrSisTaskCpu0: `r mean(df$SbrSisTaskCpu0, na.rm=TRUE)`%
+
+Mean CPU usage of SbrSisTaskCpu1: `r mean(df$SbrSisTaskCpu1, na.rm=TRUE)`%
+
+Mean CPU usage of SbrSisSendRarTaskCpu: `r mean(df$SbrSisSendRarTaskCpu, na.rm=TRUE)`%
+
+Mean CPU usage of SbrSisRspHandleTaskCpu: `r mean(df$SbrSisRspHandleTaskCpu, na.rm=TRUE)`%
+
+Mean CPU usage of SbrInvokeSisSenTaskCpu: `r mean(df$SbrInvokeSisSenTaskCpu, na.rm=TRUE)`%
+
+Mean CPU usage of SbrInvokeSisRspTaskCpu: `r mean(df$SbrInvokeSisRspTaskCpu, na.rm=TRUE)`%
+
+
+```{r, echo=FALSE,fig.height=6, fig.width=6}
+ggplot(df, aes(Date)) + 
+    scale_colour_manual("Utilization", breaks=c("SbrSisTask0", "SbrSisTask1", "SbrSisSendRarTask", "SbrSisRspHandleTask", "SbrInvokeSisSenTask", "SbrInvokeSisRspTask") , values=c("red", "blue", "green", "orange", "purple", "black")) +
+    geom_line(aes(y = SbrSisTaskCpu0, colour="SbrSisTask0")) + 
+    geom_line(aes(y = SbrSisTaskCpu1, colour="SbrSisTask1")) + 
+    geom_line(aes(y = SbrSisSendRarTaskCpu, colour="SbrSisSendRarTask")) + 
+    geom_line(aes(y = SbrSisRspHandleTaskCpu, colour="SbrSisRspHandleTask")) + 
+    geom_line(aes(y = SbrInvokeSisSenTaskCpu, colour="SbrInvokeSisSenTask")) +
+    geom_line(aes(y = SbrInvokeSisRspTaskCpu, colour="SbrInvokeSisRspTask")) +
+    ylab("Utilization") +
+    xlab("Date/Time") +
+    ggtitle("PSBR SIS Task CPU Usage")
+```
+
+
+### Statistical Summary
+The following is a statistical summary of data collected for a PSBR performance run.
+
+```{r, echo=FALSE}
+summary(df)
+```
